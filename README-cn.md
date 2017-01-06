@@ -19,21 +19,21 @@ make
 ```cpp
 #include "../src/xRedisServerLib.h"
 
-class xRedisConnect :public xRedisConnectorBase
+class RedisConnect :public RedisConnectorBase
 {
 public:
-    xRedisConnect();
-    ~xRedisConnect();
+    RedisConnect();
+    ~RedisConnect();
 private:
 };
 
-class xRedisServer :public xRedisServerBase
+class RedisServer :public RedisServerBase
 {
 public:
-    xRedisServer() {
+    RedisServer() {
 
     }
-    ~xRedisServer() {
+    ~RedisServer() {
 
     }
 
@@ -46,11 +46,11 @@ public:
 private:
     bool CmdRegister()
     {
-        if (!SetCmdTable("get", (CmdCallback)&xRedisServer::ProcessCmd_get)) return false;
+        if (!SetCmdTable("get", (CmdCallback)&RedisServer::ProcessCmd_get)) return false;
         return true;
     }
 
-    void ProcessCmd_get(xRedisConnect *pConnector)
+    void ProcessCmdGet(RedisConnect *pConnector)
     {
         if (2 != pConnector->argc) {
             SendErrReply(pConnector, "cmd error:", "error arg");
@@ -66,7 +66,7 @@ private:
 
 int main(int argc, char **argv)
 {
-    xRedisServer xRedis;
+    RedisServer xRedis;
     xRedis.Init();
     xRedis.Start("127.0.0.1", 6379);
 

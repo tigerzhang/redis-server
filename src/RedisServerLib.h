@@ -31,14 +31,14 @@ using namespace std;
 #define CMD_CALLBACK_MAX 64
 
 
-class xRedisServerBase;
-class xRedisConnectorBase;
+class RedisServerBase;
+class RedisConnectorBase;
 
-class xRedisConnectorBase
+class RedisConnectorBase
 {
 public:
-    xRedisConnectorBase();
-    ~xRedisConnectorBase();
+    RedisConnectorBase();
+    ~RedisConnectorBase();
 
 public:
    inline int getfd() { return fd; }
@@ -47,7 +47,7 @@ private:
     bool OnTimer();
     bool FreeArg();
     void SetSocketOpt();
-    friend class xRedisServerBase;
+    friend class RedisServerBase;
 public:
     int argc;
     sds *argv;
@@ -58,7 +58,7 @@ private:
     struct event evtimer;
     uint32_t sid;
     uint32_t activetime;
-    xRedisServerBase *xredisvr;
+    RedisServerBase *xredisvr;
     std::string cmdbuffer;
     int argnum;
     int parsed;
@@ -66,8 +66,8 @@ private:
 };
 
 
-class xRedisServerBase;
-typedef void (xRedisServerBase::*CmdCallback)(xRedisConnectorBase *pConnector);
+class RedisServerBase;
+typedef void (RedisServerBase::*CmdCallback)(RedisConnectorBase *pConnector);
 typedef struct _CMD_FUN_ {
     _CMD_FUN_() {
         cmd = NULL;
@@ -77,11 +77,11 @@ typedef struct _CMD_FUN_ {
     CmdCallback    cb;
 }CmdFun;
 
-class xRedisServerBase
+class RedisServerBase
 {
 public:
-    xRedisServerBase();
-    ~xRedisServerBase();
+    RedisServerBase();
+    ~RedisServerBase();
 
 public:
     bool Start(const char* ip, int port);
@@ -89,21 +89,21 @@ public:
     bool SetPassword(std::string &password);
     
 public:
-    int SendStatusReply(xRedisConnectorBase *pConnector, const char* str);
-    int SendNullReply(xRedisConnectorBase *pConnector);
-    int SendErrReply(xRedisConnectorBase *pConnector, const char *errtype, const char *errmsg);
-    int SendIntReply(xRedisConnectorBase *pConnector, int64_t ret);
-    int SendBulkReply(xRedisConnectorBase *pConnector, const std::string &vResult);
-    int SendMultiBulkReply(xRedisConnectorBase *pConnector, const std::vector<std::string> &vResult);
+    int SendStatusReply(RedisConnectorBase *pConnector, const char* str);
+    int SendNullReply(RedisConnectorBase *pConnector);
+    int SendErrReply(RedisConnectorBase *pConnector, const char *errtype, const char *errmsg);
+    int SendIntReply(RedisConnectorBase *pConnector, int64_t ret);
+    int SendBulkReply(RedisConnectorBase *pConnector, const std::string &vResult);
+    int SendMultiBulkReply(RedisConnectorBase *pConnector, const std::vector<std::string> &vResult);
 
 private:
     bool BindPort(const char* ip, int port);
     bool MallocConnection(evutil_socket_t skt);
-    xRedisConnectorBase* FindConnection(uint32_t sid);
+    RedisConnectorBase* FindConnection(uint32_t sid);
     bool FreeConnection(uint32_t sid);
-    bool ProcessCmd(xRedisConnectorBase *pConnector);
-    bool SendData(xRedisConnectorBase *pConnector, const char* data, int len);
-    int NetPrintf(xRedisConnectorBase *pConnector, const char* fmt, ...);
+    bool ProcessCmd(RedisConnectorBase *pConnector);
+    bool SendData(RedisConnectorBase *pConnector, const char* data, int len);
+    int NetPrintf(RedisConnectorBase *pConnector, const char* fmt, ...);
     bool Run();
 
     static void *Dispatch(void *arg);
@@ -115,17 +115,17 @@ private:
 
 private:
     int ParaseLength(const char* ptr, int size, int &head_count);
-    int ParaseData(xRedisConnectorBase *pConnector, const char* ptr, int size);
-    void DoCmd(xRedisConnectorBase *pConnector);
+    int ParaseData(RedisConnectorBase *pConnector, const char* ptr, int size);
+    void DoCmd(RedisConnectorBase *pConnector);
     CmdFun * GetCmdProcessFun(const char *cmd);
 
 private:
-    friend class xRedisConnectorBase;
-    bool CheckSession(xRedisConnectorBase *pConnector);
-    void ProcessCmd_auth(xRedisConnectorBase *pConnector);
+    friend class RedisConnectorBase;
+    bool CheckSession(RedisConnectorBase *pConnector);
+    void ProcessCmd_auth(RedisConnectorBase *pConnector);
 private:
     struct event_base *evbase;
-    std::map<uint32_t, xRedisConnectorBase*> connectionmap;
+    std::map<uint32_t, RedisConnectorBase*> connectionmap;
     uint32_t    sessionbase;
     CmdFun mCmdTables[CMD_CALLBACK_MAX];
     int    mCmdCount;

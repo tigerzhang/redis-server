@@ -12,12 +12,13 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <string.h>
-#include "xRedisServerLib.h"
+#include <stdlib.h>
+#include "RedisServerLib.h"
 
 #define TIMEOUT_CLOSE      3600
 #define TIMEVAL_TIME       600
 
-xRedisConnectorBase::xRedisConnectorBase()
+RedisConnectorBase::RedisConnectorBase()
 {
     bev = NULL;
     activetime = time(NULL);
@@ -29,12 +30,12 @@ xRedisConnectorBase::xRedisConnectorBase()
     authed = false;
 }
 
-xRedisConnectorBase::~xRedisConnectorBase()
+RedisConnectorBase::~RedisConnectorBase()
 {
     FreeArg();
 }
 
-bool xRedisConnectorBase::FreeArg()
+bool RedisConnectorBase::FreeArg()
 {
     for (int i = 0; i < argc; ++i){
         if (NULL == argv[i]) {
@@ -51,7 +52,7 @@ bool xRedisConnectorBase::FreeArg()
     return true;
 }
 
-bool xRedisConnectorBase::OnTimer()
+bool RedisConnectorBase::OnTimer()
 {
     if (time(NULL) - activetime > TIMEOUT_CLOSE) {
         return false;
@@ -59,7 +60,7 @@ bool xRedisConnectorBase::OnTimer()
     return true;
 }
 
-void xRedisConnectorBase::SetSocketOpt()
+void RedisConnectorBase::SetSocketOpt()
 {
     int optval = 1;
     if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &optval, sizeof(optval))) {
@@ -67,7 +68,7 @@ void xRedisConnectorBase::SetSocketOpt()
     }
 }
 
-xRedisServerBase::xRedisServerBase()
+RedisServerBase::RedisServerBase()
 {
     evbase = event_base_new();
     assert(evbase != NULL);
@@ -76,12 +77,12 @@ xRedisServerBase::xRedisServerBase()
     bAuth = false;
 }
 
-xRedisServerBase::~xRedisServerBase()
+RedisServerBase::~RedisServerBase()
 {
     event_base_free(evbase);
 }
 
-int xRedisServerBase::ParaseLength(const char* ptr, int size, int &head_count)
+int RedisServerBase::ParaseLength(const char* ptr, int size, int &head_count)
 {
     char *lf = (char *)memchr(ptr, '\n', size);
     if (lf == NULL) {
@@ -106,7 +107,7 @@ int xRedisServerBase::ParaseLength(const char* ptr, int size, int &head_count)
     return i + 2;
 }
 
-int xRedisServerBase::ParaseData(xRedisConnectorBase *pConnector, const char* ptr, int size)
+int RedisServerBase::ParaseData(RedisConnectorBase *pConnector, const char* ptr, int size)
 {
     int parased = 0;
     if (ptr[0] != '$') {
@@ -130,7 +131,7 @@ int xRedisServerBase::ParaseData(xRedisConnectorBase *pConnector, const char* pt
     return parased + len + 2;
 }
 
-bool xRedisServerBase::ProcessCmd(xRedisConnectorBase *pConnector)
+bool RedisServerBase::ProcessCmd(RedisConnectorBase *pConnector)
 {
     pConnector->activetime = time(NULL);
     int size = pConnector->cmdbuffer.length();
@@ -179,7 +180,7 @@ bool xRedisServerBase::ProcessCmd(xRedisConnectorBase *pConnector)
     return false;
 }
 
-bool xRedisServerBase::SetCmdTable(const char* cmd, CmdCallback fun)
+bool RedisServerBase::SetCmdTable(const char* cmd, CmdCallback fun)
 {
     if ((NULL == cmd) || (NULL == fun) || (mCmdCount >= CMD_CALLBACK_MAX)) {
         return false;
@@ -190,7 +191,7 @@ bool xRedisServerBase::SetCmdTable(const char* cmd, CmdCallback fun)
     return true;
 }
 
-CmdFun * xRedisServerBase::GetCmdProcessFun(const char *cmd)
+CmdFun * RedisServerBase::GetCmdProcessFun(const char *cmd)
 {
     CmdFun *iter;
     for (iter = &mCmdTables[0]; (NULL != iter) && (iter->cmd); ++iter) {
@@ -200,7 +201,7 @@ CmdFun * xRedisServerBase::GetCmdProcessFun(const char *cmd)
     return NULL;
 }
 
-void xRedisServerBase::DoCmd(xRedisConnectorBase *pConnector)
+void RedisServerBase::DoCmd(RedisConnectorBase *pConnector)
 {
     CmdFun *cmd = GetCmdProcessFun(pConnector->argv[0]);
     if (cmd) {
@@ -217,9 +218,9 @@ void xRedisServerBase::DoCmd(xRedisConnectorBase *pConnector)
     pConnector->FreeArg();
 }
 
-void xRedisServerBase::AcceptCallback(evutil_socket_t listener, short event, void *arg)
+void RedisServerBase::AcceptCallback(evutil_socket_t listener, short event, void *arg)
 {
-    class xRedisServerBase *pRedisvr = (class xRedisServerBase *)arg;
+    class RedisServerBase *pRedisvr = (class RedisServerBase *)arg;
     evutil_socket_t fd;
     struct sockaddr_in sin;
     socklen_t slen;
@@ -232,10 +233,10 @@ void xRedisServerBase::AcceptCallback(evutil_socket_t listener, short event, voi
     pRedisvr->MallocConnection(fd);
 }
 
-void xRedisServerBase::ReadCallback(struct bufferevent *bev, void *arg)
+void RedisServerBase::ReadCallback(struct bufferevent *bev, void *arg)
 {
-    xRedisConnectorBase *pConnector = reinterpret_cast<xRedisConnectorBase*>(arg);
-    xRedisServerBase *pRedisvr = pConnector->xredisvr;
+    RedisConnectorBase *pConnector = reinterpret_cast<RedisConnectorBase*>(arg);
+    RedisServerBase *pRedisvr = pConnector->xredisvr;
     struct evbuffer* input = bufferevent_get_input(bev);
 
     while (1) {
@@ -266,15 +267,15 @@ void xRedisServerBase::ReadCallback(struct bufferevent *bev, void *arg)
 
 }
 
-void xRedisServerBase::WriteCallback(struct bufferevent *bev, void *arg)
+void RedisServerBase::WriteCallback(struct bufferevent *bev, void *arg)
 {
     
 }
 
-void xRedisServerBase::TimeoutCallback(int fd, short event, void *arg)
+void RedisServerBase::TimeoutCallback(int fd, short event, void *arg)
 {
-    xRedisConnectorBase *pConnector = reinterpret_cast<xRedisConnectorBase*>(arg);
-    xRedisServerBase *pRedisvr = pConnector->xredisvr;
+    RedisConnectorBase *pConnector = reinterpret_cast<RedisConnectorBase*>(arg);
+    RedisServerBase *pRedisvr = pConnector->xredisvr;
     if (pConnector->OnTimer()) {
         struct timeval tv;
         evutil_timerclear(&tv);
@@ -285,10 +286,10 @@ void xRedisServerBase::TimeoutCallback(int fd, short event, void *arg)
     }
 }
 
-void xRedisServerBase::ErrorCallback(struct bufferevent *bev, short event, void *arg)
+void RedisServerBase::ErrorCallback(struct bufferevent *bev, short event, void *arg)
 {
-    xRedisConnectorBase *pConnector = reinterpret_cast<xRedisConnectorBase*>(arg);
-    xRedisServerBase *pRedisvr = pConnector->xredisvr;
+    RedisConnectorBase *pConnector = reinterpret_cast<RedisConnectorBase*>(arg);
+    RedisServerBase *pRedisvr = pConnector->xredisvr;
 
     evutil_socket_t fd = pConnector->getfd();
     //fprintf(stderr, "error_cb fd:%u, sid:%u bev:%p event:%d arg:%d\n", fd, pConnector->sid, bev, event, arg);
@@ -308,7 +309,7 @@ void xRedisServerBase::ErrorCallback(struct bufferevent *bev, short event, void 
     pRedisvr->FreeConnection(pConnector->sid);
 }
 
-bool xRedisServerBase::Start(const char* ip, int port)
+bool RedisServerBase::Start(const char* ip, int port)
 {
     if (BindPort(ip, port)) {
         return Run();
@@ -316,7 +317,7 @@ bool xRedisServerBase::Start(const char* ip, int port)
     return false;
 }
 
-bool xRedisServerBase::BindPort(const char* ip, int port)
+bool RedisServerBase::BindPort(const char* ip, int port)
 {
     if (NULL==ip) {
         return false;
@@ -349,14 +350,14 @@ bool xRedisServerBase::BindPort(const char* ip, int port)
     return true;
 }
 
-bool xRedisServerBase::Run()
+bool RedisServerBase::Run()
 {
     pthread_t pid;
     int ret = pthread_create(&pid, NULL, Dispatch, evbase);
     return (0==ret);
 }
 
-void *xRedisServerBase::Dispatch(void *arg){
+void *RedisServerBase::Dispatch(void *arg){
     if (NULL == arg) {
         return NULL;
     }
@@ -366,9 +367,9 @@ void *xRedisServerBase::Dispatch(void *arg){
     return NULL;
 }
 
-bool xRedisServerBase::MallocConnection(evutil_socket_t skt)
+bool RedisServerBase::MallocConnection(evutil_socket_t skt)
 {
-    xRedisConnectorBase *pConnector = new xRedisConnectorBase;
+    RedisConnectorBase *pConnector = new RedisConnectorBase;
     if (NULL == pConnector) {
         return false;
     }
@@ -388,14 +389,14 @@ bool xRedisServerBase::MallocConnection(evutil_socket_t skt)
     evtimer_add(&pConnector->evtimer, &tv);
 
     bufferevent_enable(pConnector->bev, EV_READ | EV_WRITE | EV_PERSIST);
-    connectionmap.insert(pair<uint32_t, xRedisConnectorBase*>(pConnector->sid, pConnector));
+    connectionmap.insert(pair<uint32_t, RedisConnectorBase*>(pConnector->sid, pConnector));
 
     return true;
 }
 
-xRedisConnectorBase* xRedisServerBase::FindConnection(uint32_t sid)
+RedisConnectorBase* RedisServerBase::FindConnection(uint32_t sid)
 {
-    std::map<uint32_t, xRedisConnectorBase*>::iterator iter = connectionmap.find(sid);
+    std::map<uint32_t, RedisConnectorBase*>::iterator iter = connectionmap.find(sid);
     if (iter == connectionmap.end()) {
         return NULL;
     } else {
@@ -403,9 +404,9 @@ xRedisConnectorBase* xRedisServerBase::FindConnection(uint32_t sid)
     }
 }
 
-bool xRedisServerBase::FreeConnection(uint32_t sid)
+bool RedisServerBase::FreeConnection(uint32_t sid)
 {
-    std::map<uint32_t, xRedisConnectorBase*>::iterator iter = connectionmap.find(sid);
+    std::map<uint32_t, RedisConnectorBase*>::iterator iter = connectionmap.find(sid);
     if (iter == connectionmap.end()) {
         return false;
     } else {
@@ -418,13 +419,13 @@ bool xRedisServerBase::FreeConnection(uint32_t sid)
     return true;
 }
 
-bool xRedisServerBase::SendData(xRedisConnectorBase *pConnector, const char* data, int len)
+bool RedisServerBase::SendData(RedisConnectorBase *pConnector, const char* data, int len)
 {
     int ret = bufferevent_write(pConnector->bev, data, len);
     return (0 == ret);
 }
 
-int xRedisServerBase::NetPrintf(xRedisConnectorBase *pConnector, const char* fmt, ...)
+int RedisServerBase::NetPrintf(RedisConnectorBase *pConnector, const char* fmt, ...)
 {
     char szBuf[256] = { 0 };
     int len = 0;
@@ -436,27 +437,27 @@ int xRedisServerBase::NetPrintf(xRedisConnectorBase *pConnector, const char* fmt
     return (bRet) ? len : 0;
 }
 
-int xRedisServerBase::SendStatusReply(xRedisConnectorBase *pConnector, const char* str)
+int RedisServerBase::SendStatusReply(RedisConnectorBase *pConnector, const char* str)
 {
     return NetPrintf(pConnector, "+%s\r\n", str);
 }
 
-int xRedisServerBase::SendNullReply(xRedisConnectorBase *pConnector)
+int RedisServerBase::SendNullReply(RedisConnectorBase *pConnector)
 {
     return NetPrintf(pConnector, "$-1\r\n");
 }
 
-int xRedisServerBase::SendErrReply(xRedisConnectorBase *pConnector, const char *errtype, const char *errmsg)
+int RedisServerBase::SendErrReply(RedisConnectorBase *pConnector, const char *errtype, const char *errmsg)
 {
     return NetPrintf(pConnector, "-%s %s\r\n", errtype, errmsg);
 }
 
-int xRedisServerBase::SendIntReply(xRedisConnectorBase *pConnector, int64_t ret)
+int RedisServerBase::SendIntReply(RedisConnectorBase *pConnector, int64_t ret)
 {
     return NetPrintf(pConnector, ":%" PRId64 "\r\n", ret);
 }
 
-int xRedisServerBase::SendBulkReply(xRedisConnectorBase *pConnector, const std::string &strResult)
+int RedisServerBase::SendBulkReply(RedisConnectorBase *pConnector, const std::string &strResult)
 {
     NetPrintf(pConnector, "$%zu\r\n", strResult.size());
     SendData(pConnector, strResult.c_str(), strResult.size());
@@ -464,7 +465,7 @@ int xRedisServerBase::SendBulkReply(xRedisConnectorBase *pConnector, const std::
     return 0;
 }
 
-int xRedisServerBase::SendMultiBulkReply(xRedisConnectorBase *pConnector, const std::vector<std::string> &vResult)
+int RedisServerBase::SendMultiBulkReply(RedisConnectorBase *pConnector, const std::vector<std::string> &vResult)
 {
     NetPrintf(pConnector, "*%zu\r\n", vResult.size());
     for (size_t i = 0; i < vResult.size(); ++i) {
@@ -473,7 +474,7 @@ int xRedisServerBase::SendMultiBulkReply(xRedisConnectorBase *pConnector, const 
     return 0;
 }
 
-bool xRedisServerBase::CheckSession(xRedisConnectorBase *pConnector)
+bool RedisServerBase::CheckSession(RedisConnectorBase *pConnector)
 {
     bool bRet = (!bAuth) ? true : (pConnector->authed);
     if (!bRet){
@@ -482,14 +483,14 @@ bool xRedisServerBase::CheckSession(xRedisConnectorBase *pConnector)
     return bRet;
 }
 
-bool xRedisServerBase::SetPassword(std::string &password)
+bool RedisServerBase::SetPassword(std::string &password)
 {
     pass = password;
     bAuth = (password.length() > 0) ? true : false;
     return bAuth;
 }
 
-void xRedisServerBase::ProcessCmd_auth(xRedisConnectorBase *pConnector)
+void RedisServerBase::ProcessCmd_auth(RedisConnectorBase *pConnector)
 {
     if (2 != pConnector->argc) {
         SendErrReply(pConnector, "arg error", "argc error");
